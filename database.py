@@ -1,35 +1,32 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
-# create_engine → connects to DB
-# DeclarativeBase → base class for models
-# sessionmaker → creates DB sessions
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./blog.db" #using sqlite db
+
+SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./blog.db" # SQLite driver = sync, SQLite + aiosqlite = async
 
 # Engine = bridge between app and DB
 
-engine = create_engine(
+engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread" : False} # SQLite normally allows only one thread but FastAPI runs multiple requests(threads). So we disable restrictions
 )
 
 # SessionLocal → creates session → session talks to DB
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) # sessionmaker(...) → Creates a factory for sessions
+AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False) # sessionmaker(...) → Creates a factory for sessions
 
-# Session = temporary DB connection used for queries
-# Set autocommit to False so to manually commit -> db.commit()
-# Set autoflush to False so that changes are not automatically pushed to DB
-# bind = Engine → Connect session to database
+# async_sessionmaker → creates async sessions
+# class_=AsyncSession → use async session class
+# expire_on_commit=False → prevent auto reload after commit
 
 
 class Base(DeclarativeBase): # Used to define database models
     pass
 
 # Dependency
-def get_db():    # Creates a database session per request
-    with SessionLocal() as db:
-        yield db
+async def get_db():    # Creates a database session per request
+    async with AsyncSessionLocal() as session:
+        yield session
 
 
 # *** Request → get_db() → DB session → query → response → session closed ***
