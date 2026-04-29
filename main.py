@@ -64,6 +64,7 @@ async def home(request : Request, db : Annotated[AsyncSession, Depends(get_db)])
     result = await db.execute(
             select(models.Post)
             .options(selectinload(models.Post.author)) # Also load the related User (author) for each Post as author has a relationship with posts to avoid N+1 problem where 1 query fetches posts and N queries to fetch author in home.html. So, using selectinload to load the author immediately with the post
+            .order_by(models.Post.date_posted.desc()) 
         ) 
     
     posts = result.scalars().all()
@@ -109,6 +110,7 @@ async def user_posts_page(request : Request, user_id : int, db : Annotated[Async
                 select(models.Post)
                 .options(selectinload(models.Post.author))
                 .where(models.Post.user_id == user_id)
+                .order_by(models.Post.date_posted.desc())
             )
     posts = result.scalars().all()
     return templates.TemplateResponse(request, "user_posts.html", {"posts" : posts, "user" : user, "title" : f"{user.username}'s Posts"})
