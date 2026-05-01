@@ -1,0 +1,17 @@
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# BaseSettings → reads values from environment / .env
+# SecretStr → hides sensitive data (like passwords, keys)
+# SettingsConfigDict → configuration for how settings are loaded
+
+
+class Settings(BaseSettings):   # This class automatically loads values from .env file
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")      # Load values from .env file and using utf-8 encoding  
+
+    secret_key : SecretStr    # Required field in .env which is stored secretlyusing SecretStr to prevent accidental leaks like "print(settings.secret_key)"
+    algorithm : str = "HS256"  # WT signing algorithm -> HS256 = HMAC SHA256 (standard)
+    access_token_expire_minutes : int = 30  # Token valid for 30 minutes
+
+
+settings = Settings()   

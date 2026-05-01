@@ -1,10 +1,70 @@
+# -----------------------------
 # Python-generated files
+# -----------------------------
 __pycache__/
-*.py[oc]
+*.py[cod]
+*.pyo
+*.pyd
 build/
 dist/
 wheels/
-*.egg-info
+*.egg-info/
 
+# -----------------------------
 # Virtual environments
-.venv
+# -----------------------------
+.venv/
+venv/
+env/
+
+# -----------------------------
+# Environment & secrets
+# -----------------------------
+.env
+.env.*
+*.env
+.env.local
+.env.development
+.env.production
+
+# -----------------------------
+# Database files (local)
+# -----------------------------
+*.db
+*.sqlite3
+*.sqlite
+
+# -----------------------------
+# Logs
+# -----------------------------
+*.log
+
+# -----------------------------
+# IDE / Editor
+# -----------------------------
+.vscode/
+.idea/
+
+# -----------------------------
+# OS files
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# Node (if any frontend later)
+# -----------------------------
+node_modules/
+
+# -----------------------------
+# Coverage / testing
+# -----------------------------
+.coverage
+htmlcov/
+.pytest_cache/
+
+# -----------------------------
+# Secrets (extra safety)
+# -----------------------------
+secrets.json
+config.json
