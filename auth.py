@@ -1,9 +1,19 @@
 from datetime import UTC, datetime, timedelta
 
 import jwt
+from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 from pwdlib import PasswordHash
 from config import settings
+from typing import Annotated
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+import models
+from database import get_db
+from config import settings
+
+
 
 # datetime → token expiry time
 # jwt → create/verify tokens
@@ -57,3 +67,42 @@ def verify_access_token(token : str) -> str | None:
     
     else:
         return payload.get("sub")  # means token is valid -> return user_id
+    
+
+
+async def get_current_user(db : Annotated[AsyncSession, Depends(get_db)], token : Annotated[str, Depends(oauth2_scheme)]):
+
+    # Get the currently authenticated user
+    user_id = verify_access_token(token)
+
+    if user_id is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, deatail="Invalid or Expired token", headers={"WWW-Authenticate" : "Bearer"})
+    
+    """
+    JWT does NOT guarantee:
+        user still exists in DB
+        user_id is valid integer
+        user is active / not deleted
+    """
+    
+    # Validate user_id is a valid integer (defense against malformed JWT)
+    
+    try:
+        user_id_int = int(user_id)
+
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User Not Found", headers={"WWW-Authenticate" : "Bearer"})
+    
+    # Token created → user deleted later but DB: no user found
+    # User ID exists in token but not in DB
+    # Token forged (if secret leaked) -> sub = "999999" {Valid signature but fake user}
+    
+    result = await db.execute(select(models.User).where(models.User.id == user_id_int))
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User Not Found", headers={"WWW-Authenticate" : "Bearer"})
+    
+    return user
+
+CurrentUser = Annotated[models.User, Depends(get_current_user)]

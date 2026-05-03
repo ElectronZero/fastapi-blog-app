@@ -10,7 +10,7 @@
             <title>FastAPI Blog</title>
         {% endif %}
         <meta name="description" content="FastAPI Tutorial">
-        <meta name="author" content="Ayushman Shaw">
+        <meta name="author" content="Corey Schafer">
         <!-- Open Graph Tags: The title of the page for social media sharing. It can match the title tag or be more descriptive. -->
         <meta property="og:title" content="FastAPI Blog">
         <!-- Open Graph Tags: Typically set to "website" for static sites or "article" for content-heavy pages. -->
@@ -85,10 +85,9 @@
                                         type="button"
                                         data-bs-toggle="modal"
                                         data-bs-target="#createPostModal">New Post</button>
-                                <span id="usernameDisplay" class="navbar-text me-md-2"></span>
-                                <button class="btn btn-outline-light mb-2 mb-md-0 me-md-3"
-                                        type="button"
-                                        id="logoutBtn">Logout</button>
+                                <a class="btn btn-light mb-2 mb-md-0 me-md-3"
+                                   href="{{ url_for("account_page") }}"
+                                   id="accountBtn">Account</a>
                             </div>
                             <!-- Shown when logged out -->
                             <div id="loggedOutNav">
@@ -146,7 +145,7 @@
         <footer class="mt-auto py-3 bg-body-tertiary border-top">
             <div class="container text-center">
                 <p class="text-body-secondary mb-0">
-                    © <span id="year"></span> Ayushman Shaw
+                    © <span id="year"></span> Corey Schafer
                 </p>
             </div>
         </footer>
@@ -266,31 +265,28 @@
         </script>
         <!-- Auth State Management -->
         <script type="module">
-        import { getCurrentUser, logout } from '/static/js/auth.js';
+            import { getCurrentUser } from '/static/js/auth.js';
 
-        // Update navbar based on auth state
-        async function updateAuthUI() {
-            const user = await getCurrentUser();
-            const loggedInNav = document.getElementById('loggedInNav');
-            const loggedOutNav = document.getElementById('loggedOutNav');
+            async function updateAuthUI() {
+                const user = await getCurrentUser();
+                const loggedInNav = document.getElementById('loggedInNav');
+                const loggedOutNav = document.getElementById('loggedOutNav');
+                const accountBtn = document.getElementById('accountBtn');
 
-            if (user) {
-            loggedInNav.classList.remove('d-none');
-            loggedInNav.classList.add('d-flex');
-            loggedOutNav.classList.add('d-none');
-            document.getElementById('usernameDisplay').textContent = user.username; 
-            } else {
-            loggedInNav.classList.add('d-none');
-            loggedInNav.classList.remove('d-flex');
-            loggedOutNav.classList.remove('d-none');
+                if (user) {
+                    loggedInNav.classList.remove('d-none');
+                    loggedInNav.classList.add('d-flex');
+                    loggedOutNav.classList.add('d-none');
+                    accountBtn.textContent = user.username;
+                } else {
+                    loggedInNav.classList.add('d-none');
+                    loggedInNav.classList.remove('d-flex');
+                    loggedOutNav.classList.remove('d-none');
+                    accountBtn.textContent = 'Account';
+                }
             }
-        }
 
-        // Logout handler
-        document.getElementById('logoutBtn').addEventListener('click', logout);
-
-        // Update UI on page load
-        updateAuthUI();
+            updateAuthUI();
         </script>
         <!-- Create Post Form Handler -->
         <script type="module">
@@ -299,6 +295,7 @@
             hideModal,
             showModal,
             } from "/static/js/utils.js";
+            import { getToken } from '/static/js/auth.js';
 
             const createForm = document.getElementById("createPostForm");
 
@@ -306,12 +303,17 @@
             // Stop default form submission - we'll handle it with JavaScript
             event.preventDefault();
 
+            const token = getToken();
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
             // Gather form values into a plain object {title: "...", content: "..."}
             const formData = new FormData(createForm);
             const postData = Object.fromEntries(formData.entries());
 
-            // TEMPORARY - hardcoded until authorization (Tutorial 11)
-            postData.user_id = 1;
+            
 
             try {
                 // POST to our API as JSON
@@ -319,9 +321,15 @@
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    'Authorization': `Bearer ${token}`,
                 },
                 body: JSON.stringify(postData),
                 });
+
+                if (response.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
 
                 if (response.ok) {
                 const data = await response.json();
