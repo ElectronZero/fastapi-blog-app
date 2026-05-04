@@ -13,5 +13,7 @@ class Settings(BaseSettings):   # This class automatically loads values from .en
     algorithm : str = "HS256"  # WT signing algorithm -> HS256 = HMAC SHA256 (standard)
     access_token_expire_minutes : int = 30  # Token valid for 30 minutes
 
+    max_upload_size_bytes : int = 5 * 1024 * 1024 # Adding constraint of 5MB in profile pic upload
+
 
 settings = Settings()   
