@@ -7,7 +7,7 @@ from fastapi.exception_handlers import http_exception_handler, request_validatio
 from starlette.exceptions import HTTPException as StarletteHTTPException #This is imported as whenever user goes to wrong link starlette raises an exception
 
 from typing import Annotated
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # imported to avoid lazy loading which run a sync query in an async context which is not allowed. So, eager loading is implemented by importing selectinload to load them immediately with the main query.
@@ -18,6 +18,7 @@ from database import Base, engine, get_db
 from contextlib import asynccontextmanager
 
 from routers import posts, users
+from config import settings
 
 
 
@@ -80,15 +81,22 @@ async def account_page(request : Request):
 @app.get("/posts", include_in_schema=False, name = "posts")
 
 async def home(request : Request, db : Annotated[AsyncSession, Depends(get_db)]):
+
+    count_result = await db.execute(select(func.count()).select_from(models.Post))
+    total = count_result.scalar()
+
+    
     result = await db.execute(
             select(models.Post)
             .options(selectinload(models.Post.author)) # Also load the related User (author) for each Post as author has a relationship with posts to avoid N+1 problem where 1 query fetches posts and N queries to fetch author in home.html. So, using selectinload to load the author immediately with the post
-            .order_by(models.Post.date_posted.desc()) 
+            .order_by(models.Post.date_posted.desc())
+            .limit(settings.posts_per_page) 
         ) 
     
     posts = result.scalars().all()
+    has_more = len(posts) < total
 
-    return templates.TemplateResponse(request, "home.html", {"posts" : posts, "title" : "Home"})
+    return templates.TemplateResponse(request, "home.html", {"posts" : posts, "title" : "Home", "limit" : settings.posts_per_page, "has_more" : has_more})
 
 
 
@@ -125,14 +133,22 @@ async def user_posts_page(request : Request, user_id : int, db : Annotated[Async
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
     
+    count_result = await db.execute(select(func.count()).select_from(models.Post).where(models.Post.id == user_id))
+    total = count_result.scalar()
+    
     result = await db.execute(
-                select(models.Post)
-                .options(selectinload(models.Post.author))
-                .where(models.Post.user_id == user_id)
-                .order_by(models.Post.date_posted.desc())
-            )
+        select(models.Post)
+        .options(selectinload(models.Post.author))
+        .where(models.Post.user_id == user_id)
+        .order_by(models.Post.date_posted.desc())
+        .limit(settings.posts_per_page)
+    )
+    
     posts = result.scalars().all()
-    return templates.TemplateResponse(request, "user_posts.html", {"posts" : posts, "user" : user, "title" : f"{user.username}'s Posts"})
+    has_more = len(posts) < total
+
+    return templates.TemplateResponse(request, "user_posts.html", {"posts" : posts, "user" : user, "title" : f"{user.username}'s Posts", "limit" : settings.posts_per_page, "has_more" : has_more})
+
 
 
 

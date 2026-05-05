@@ -1,14 +1,17 @@
-from typing import Annotated
-from fastapi import APIRouter, HTTPException, status, Depends
-from sqlalchemy import select
+from typing import Annotated # Separates type (int) from metadata (Query)
+from fastapi import APIRouter, HTTPException, status, Depends, Query
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 import models
 from database import get_db
-from schemas import PostResponse, PostCreate, PostUpdate
+from schemas import PostResponse, PostCreate, PostUpdate, PaginatedPostResponse
 from auth import CurrentUser
+from config import settings
 
 router = APIRouter()
+
+
 
 #Create Posts
 @router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
@@ -26,16 +29,36 @@ async def create_post(post: PostCreate, current_user : CurrentUser, db : Annotat
 
 
 #get all posts
-@router.get("", response_model=list[PostResponse])
+@router.get("", response_model=PaginatedPostResponse)
 
-async def get_posts(db : Annotated[AsyncSession, Depends(get_db)]):
+async def get_posts(
+    db : Annotated[AsyncSession, Depends(get_db)], 
+    skip : Annotated[int, Query(ge=0)] = 0, 
+    limit : Annotated[int, Query(ge=1, le=100)] = settings.posts_per_page
+):
+
+    count_result = await db.execute(select(func.count()).select_from(models.Post))
+    total = count_result.scalar() or 0 # output -> one value (first column of first row), used for count, avg, sum
+
     result = await db.execute(
             select(models.Post)
             .options(selectinload(models.Post.author))
             .order_by(models.Post.date_posted.desc())
+            .offset(skip)
+            .limit(limit)
         )
-    posts = result.scalars().all()
-    return posts
+    
+    posts = result.scalars().all() # fetch many rows
+
+    has_more = skip + len(posts) < total
+
+    return PaginatedPostResponse(
+        posts=[PostResponse.model_validate(post) for post in posts], # Loop through the DB and take each "post" from DB → convert it into PostResponse → put in a new list
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more
+    )
 
     
 
@@ -45,7 +68,7 @@ async def get_posts(db : Annotated[AsyncSession, Depends(get_db)]):
 
 async def get_post(post_id : int, db : Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(select(models.Post).options(selectinload(models.Post.author)).where(models.Post.id == post_id))
-    post = result.scalars().first()
+    post = result.scalars().first()  # fetch one row (or None)
 
     if not post:
         raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Post not Found")
@@ -60,7 +83,7 @@ async def get_post(post_id : int, db : Annotated[AsyncSession, Depends(get_db)])
 async def update_post_fully(post_id : int, post_data : PostCreate, current_user : CurrentUser, db : Annotated[AsyncSession, Depends(get_db)]):
 
     result = await db.execute(select(models.Post).where(models.Post.id == post_id))
-    post = result.scalars().first()
+    post = result.scalars().first() 
 
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post Not Found")

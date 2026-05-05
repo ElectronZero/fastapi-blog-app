@@ -1,6 +1,6 @@
 from datetime import timedelta
 from typing import Annotated
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile # UploadFile = a file object sent by the client (form upload) represents a file coming from "multipart/form-data"
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, Query # UploadFile = a file object sent by the client (form upload) represents a file coming from "multipart/form-data"
 from fastapi.security import OAuth2PasswordRequestForm
 from PIL import UnidentifiedImageError # Error if file is NOT a valid image
 from sqlalchemy import select, func, or_
@@ -22,7 +22,7 @@ from sqlalchemy.orm import selectinload
 
 import models
 from database import get_db
-from schemas import PostResponse, UserCreate, UserPrivate, UserPublic, UserUpdate, Token
+from schemas import PostResponse, UserCreate, UserPrivate, UserPublic, UserUpdate, Token, PaginatedPostResponse
 
 from image_utils import process_profile_image, delete_profile_image
 from auth import hash_password, create_access_token, verify_password, CurrentUser
@@ -122,9 +122,14 @@ async def get_user(user_id : int, db : Annotated[AsyncSession, Depends(get_db)])
 
 
 # get user posts
-@router.get("/{user_id}/posts", response_model=list[PostResponse])
+@router.get("/{user_id}/posts", response_model=PaginatedPostResponse)
 
-async def get_user_posts(user_id : int, db : Annotated[AsyncSession, Depends(get_db)]):
+async def get_user_posts(
+    user_id : int, 
+    db : Annotated[AsyncSession, Depends(get_db)],
+    skip : int = Query(0, ge=0),
+    limit : Annotated[int, Query(ge=1, le=100)] = settings.posts_per_page
+):
 
     result = await db.execute(select(models.User).where(models.User.id == user_id))
     user = result.scalars().first()
@@ -132,14 +137,29 @@ async def get_user_posts(user_id : int, db : Annotated[AsyncSession, Depends(get
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
     
+    count_result = await db.execute(select(func.count()).select_from(models.Post).where(models.Post.id == user_id))
+    total = count_result.scalar() or 0
+
     result = await db.execute(
-                select(models.Post)
-                .options(selectinload(models.Post.author))
-                .where(models.Post.user_id == user_id)
-                .order_by(models.Post.date_posted.desc())
-            )
+        select(models.Post)
+        .options(selectinload(models.Post.author))
+        .where(models.Post.id == user_id).order_by()
+        .order_by(models.Post.date_posted.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+
     posts = result.scalars().all()
-    return posts
+
+    has_more = skip + len(posts) < total
+
+    return PaginatedPostResponse(
+        posts= [PostResponse.model_validate(post) for post in posts],
+        total= total,
+        skip= skip,
+        limit= limit,
+        has_more= has_more
+    )
 
 
 

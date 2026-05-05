@@ -15,5 +15,7 @@ class Settings(BaseSettings):   # This class automatically loads values from .en
 
     max_upload_size_bytes : int = 5 * 1024 * 1024 # Adding constraint of 5MB in profile pic upload
 
+    posts_per_page : int = 10
+
 
 settings = Settings()   

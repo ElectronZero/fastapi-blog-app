@@ -55,12 +55,15 @@ class PostBase(BaseModel):
     title : str = Field(min_length = 1, max_length= 100)
     content : str = Field(min_length = 5)
 
+
 class PostCreate(PostBase):
     pass
+
 
 class PostUpdate(BaseModel):
     title : str | None = Field(default=None, min_length=1, max_length=100)
     content : str | None = Field(default = None, min_length=1)
+
 
 class PostResponse(PostBase):
     #Allow this model to read values from object attributes (like obj.id) instead of only dictionaries.
@@ -70,3 +73,11 @@ class PostResponse(PostBase):
     user_id : int
     date_posted : datetime
     author : UserPublic
+
+
+class PaginatedPostResponse(BaseModel):
+    posts: list[PostResponse]
+    total: int  # Total no. of posts
+    skip: int   # offset -> How many items are skipped
+    limit: int  # Maximum no. of posts that should be returned 
+    has_more: bool # Are there more posts after this page?  -> "has_more" used to tell frontend if there is more posts or not 
