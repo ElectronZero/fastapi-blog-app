@@ -17,5 +17,15 @@ class Settings(BaseSettings):   # This class automatically loads values from .en
 
     posts_per_page : int = 10
 
+    reset_token_expires_minutes : int = 60
 
-settings = Settings()   
+    mail_server : str = "localhost"
+    mail_port : int = 587
+    mail_username : str = ""
+    mail_password : SecretStr = SecretStr("")
+    mail_from : str = "noreply@example.com"
+    mail_use_tls : bool = True
+
+    frontend_url : str = "http://localhost:8000"
+
+settings = Settings()

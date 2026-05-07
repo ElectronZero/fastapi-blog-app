@@ -75,6 +75,23 @@ async def account_page(request : Request):
     return templates.TemplateResponse(request, "account.html", {"title" : "Account"})
 
 
+# Forgot Password
+@app.get("/forgot_password", include_in_schema=False)
+
+async def forgot_password_page(request : Request):
+    return templates.TemplateResponse(request, "forgot_password.html", {"tilte" : "Forgot Password"})
+
+
+# Reset Password
+@app.get("/reset-password", include_in_schema=False)
+
+async def reset_password_page(request : Request):
+    response = templates.TemplateResponse(request, "reset_password.html", {"tilte" : "Reset Password"})
+
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
 
 #home
 @app.get("/", include_in_schema=False, name = "home")

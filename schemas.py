@@ -81,3 +81,20 @@ class PaginatedPostResponse(BaseModel):
     skip: int   # offset -> How many items are skipped
     limit: int  # Maximum no. of posts that should be returned 
     has_more: bool # Are there more posts after this page?  -> "has_more" used to tell frontend if there is more posts or not 
+
+
+
+# PASSWORD
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr = Field(max_length=120)
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
